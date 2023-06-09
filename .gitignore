@@ -1,0 +1,23 @@
+# Notebooks
+.ipynb_checkpoints/
+
+# Development
+.python-version
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Packaging
+/build/
+/dist/
+/.tox/
+
+# Vim
+.*.sw[po]
+/Session.vim
+/tags
+*~
+[._]*.un~
