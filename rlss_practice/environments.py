@@ -7,14 +7,17 @@ from typing import SupportsFloat
 
 import gymnasium as gym
 import numpy as np
+from gymnasium.wrappers.time_limit import TimeLimit
 from minigrid import envs
 from minigrid.core.constants import DIR_TO_VEC
+from minigrid.minigrid_env import MiniGridEnv
 
-from rlss_practice.wrappers import BinaryReward, DecodeObservation, FailProbability
+from rlss_practice.wrappers import (BinaryReward, DecodeObservation,
+                                    FailProbability)
 
 
-class Room(gym.Wrapper):
-    """An Empty minigrid environment with explicit transition and reward functions.
+class MinigridBase(gym.Wrapper):
+    """Base class for minigrid environments with explicit transition and reward functions.
 
     The agent is rewarded upon reaching the goal location.
 
@@ -28,10 +31,11 @@ class Room(gym.Wrapper):
 
     Observation space:
 
-    |-----|-------------------------|
-    | x   | x coordinate            |
-    | y   | y coordinate (downward) |
-    | dir | cardinal direction      |
+    | Name | Description             |
+    |------|-------------------------|
+    | x    | x coordinate            |
+    | y    | y coordinate (downward) |
+    | dir  | cardinal direction      |
 
     The transition function is stored in `T`,
     where `T[state][action][next_state]` is the transition probability.
@@ -41,28 +45,32 @@ class Room(gym.Wrapper):
     StateT = tuple[int, int, int]
     ActionT = int
 
-    def __init__(self, seed: int, failure=0.0, **kwargs):
+    def __init__(self, minigrid: MiniGridEnv, seed: int, failure=0.0):
         """Initialize.
 
+        minigrid: an instantiated minigrid environment.
         seed: random seed
         failure: failure probability of the actions (another action is executed instead).
-        size: room side length
-        agent_start_pos: tuple with coordinates
-        agent_start_dir: north or..
         """
-        # Create minigrid env
-        self.minigrid = envs.EmptyEnv(highlight=False, **kwargs)
+        # Store
+        self.minigrid = minigrid
+        self.minigrid.highlight = False
         self.minigrid.action_space = gym.spaces.Discrete(3)
         self.failure = failure
+        self.seed = seed
 
-        # Transform appropriately
+        # Transform and store
         env: gym.Env = FailProbability(self.minigrid, failure=failure, seed=seed)
         env = DecodeObservation(env=env)
         env = BinaryReward(env=env)
-
-        # Store and compute functions
+        env = TimeLimit(env=env, max_episode_steps=40)
         super().__init__(env=env)
-        self.reset()                             # This creates a fixed grid and goal
+
+        # The grid must be generated once
+        env.reset()   # this creates the grid
+        def _reset(*, seed=None, options=None):
+            return minigrid.gen_obs(), {}
+        minigrid.reset = _reset
         self._grid = self.minigrid.grid.encode() # Just to check that the grid never changes
 
         # Sizes
@@ -75,7 +83,6 @@ class Room(gym.Wrapper):
 
         # Explicit transition and rewards functions
         self._compute_model()
-        import pdb; pdb.set_trace()
 
     def __str__(self):
         """Simplified to string."""
@@ -85,7 +92,7 @@ class Room(gym.Wrapper):
         }
         AGENT_DIR_TO_STR = {0: ">", 1: "V", 2: "<", 3: "^"}
 
-        output = " Room\n"
+        output = ""
 
         for j in range(self.grid.height):
             for i in range(self.grid.width):
@@ -173,9 +180,9 @@ class Room(gym.Wrapper):
         self.R = dict(R)
 
     def reset(self, **kwargs):
-        ret = super().reset(**kwargs)
-        if hasattr(self, "_grid"):
-            assert (self.minigrid.grid.encode() == self._grid).all(), "The grid changed: this shouldn't happen"
+        """Environment reset."""
+        ret = super().reset(seed=self.seed, **kwargs)
+        assert (self.minigrid.grid.encode() == self._grid).all(), "The grid changed: this shouldn't happen"
         return ret
     
     def _pretty_print_T(self):
@@ -191,6 +198,19 @@ class Room(gym.Wrapper):
                             print(f"    next state {state2}: {self.T[state][action][state2]}")
 
 
+class Room(MinigridBase):
+    """Single room environment."""
+
+    def __init__(self, failure=0.0, **kwargs):
+        """Initialize.
+
+        failure: failure probability of the actions (another action is executed instead).
+        size: room side length
+        agent_start_pos: tuple with coordinates
+        agent_start_dir: north or..
+        """
+        minigrid = envs.EmptyEnv(**kwargs)
+        super().__init__(minigrid=minigrid, seed=91273192, failure=failure)
 
 
 def test(env: gym.Env, interactive: bool = False):
@@ -249,5 +269,5 @@ def test(env: gym.Env, interactive: bool = False):
 
 if __name__ == '__main__':
 
-    env = Room(seed=19823283, failure=0.0, size=5, agent_start_dir=0, agent_start_pos=(1,1), render_mode='human')
+    env = Room(failure=0.0, size=5, agent_start_dir=0, agent_start_pos=(1,1), render_mode='human')
     test(env, interactive=False)
