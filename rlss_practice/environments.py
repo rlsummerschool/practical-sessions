@@ -12,8 +12,7 @@ from minigrid import envs
 from minigrid.core.constants import DIR_TO_VEC
 from minigrid.minigrid_env import MiniGridEnv
 
-from rlss_practice.wrappers import (BinaryReward, DecodeObservation,
-                                    FailProbability)
+from rlss_practice.wrappers import BinaryReward, DecodeObservation, FailProbability
 
 
 class MinigridBase(gym.Wrapper):
@@ -67,19 +66,27 @@ class MinigridBase(gym.Wrapper):
         super().__init__(env=env)
 
         # The grid must be generated once
-        env.reset()   # this creates the grid
+        env.reset(seed=self.seed)  # this creates the grid
+
         def _reset(*, seed=None, options=None):
             return minigrid.gen_obs(), {}
-        minigrid.reset = _reset
-        self._grid = self.minigrid.grid.encode() # Just to check that the grid never changes
 
-        # Sizes
+        minigrid.reset = _reset
+        self._grid = (
+            self.minigrid.grid.encode()
+        )  # Just to check that the grid never changes
+
+        # States and actions
         assert isinstance(env.observation_space, gym.spaces.MultiDiscrete)
         assert isinstance(env.action_space, gym.spaces.Discrete)
         obs_space = env.observation_space.nvec
         self.actions = list(range(env.action_space.n))
-        self.states = list(itertools.product(*(range(obs_space[i]) for i in range(len(obs_space)))))
-        self.states = [(x, y, o) for (x, y, o) in self.states if self._is_valid_position(x, y)]
+        self.states = list(
+            itertools.product(*(range(obs_space[i]) for i in range(len(obs_space))))
+        )
+        self.states = [
+            (x, y, o) for (x, y, o) in self.states if self._is_valid_position(x, y)
+        ]
 
         # Explicit transition and rewards functions
         self._compute_model()
@@ -113,12 +120,17 @@ class MinigridBase(gym.Wrapper):
 
     def _is_valid_position(self, i: int, j: int) -> bool:
         """Testing whether a coordinate is a valid location."""
-        if i < 0: return False
-        if j < 0: return False
-        if i >= self.minigrid.width: return False
-        if j >= self.minigrid.height: return False
+        if i < 0:
+            return False
+        if j < 0:
+            return False
+        if i >= self.minigrid.width:
+            return False
+        if j >= self.minigrid.height:
+            return False
         cell = self.minigrid.grid.get(i, j)
-        if cell is not None and not cell.can_overlap(): return False
+        if cell is not None and not cell.can_overlap():
+            return False
         return True
 
     def _state_step(self, state: StateT, action: ActionT) -> StateT:
@@ -158,7 +170,6 @@ class MinigridBase(gym.Wrapper):
         R: dict = defaultdict(lambda: defaultdict())
         for state in self.states:
             for action in self.actions:
-
                 # Reward
                 pos = self.minigrid.grid.get(state[0], state[1])
                 if pos is not None and pos.type == "goal":
@@ -168,11 +179,17 @@ class MinigridBase(gym.Wrapper):
 
                 # Transition
                 success_state = self._state_step(state, action)
-                failure_states = [self._state_step(state, a) for a in self.actions if a != action]
-                T[state][action] = {s: 1 - self.failure if s == success_state
-                    else self.failure / len(failure_states) if s in failure_states
+                failure_states = [
+                    self._state_step(state, a) for a in self.actions if a != action
+                ]
+                T[state][action] = {
+                    s: 1 - self.failure
+                    if s == success_state
+                    else self.failure / len(failure_states)
+                    if s in failure_states
                     else 0.0
-                    for s in self.states}
+                    for s in self.states
+                }
 
             T[state] = dict(T[state])
             R[state] = dict(R[state])
@@ -182,9 +199,11 @@ class MinigridBase(gym.Wrapper):
     def reset(self, **kwargs):
         """Environment reset."""
         ret = super().reset(seed=self.seed, **kwargs)
-        assert (self.minigrid.grid.encode() == self._grid).all(), "The grid changed: this shouldn't happen"
+        assert (
+            self.minigrid.grid.encode() == self._grid
+        ).all(), "The grid changed: this shouldn't happen"
         return ret
-    
+
     def _pretty_print_T(self):
         """Prints the positive components of the transition function."""
         print("Transition function -- self.T")
@@ -195,11 +214,28 @@ class MinigridBase(gym.Wrapper):
                     print(f"  action {action}")
                     for state2 in self.states:
                         if self.T[state][action][state2] > 0.0:
-                            print(f"    next state {state2}: {self.T[state][action][state2]}")
+                            print(
+                                f"    next state {state2}: {self.T[state][action][state2]}"
+                            )
 
 
 class Room(MinigridBase):
-    """Single room environment."""
+    """Single room environment with explicit model."""
+
+    def __init__(self, failure=0.0, **kwargs):
+        """Initialize.
+
+        failure: failure probability of the actions (another action is executed instead).
+        size: room side length
+        agent_start_pos: tuple with coordinates
+        agent_start_dir: north or..
+        """
+        minigrid = envs.EmptyEnv(**kwargs)
+        super().__init__(minigrid=minigrid, seed=91273192, failure=failure)
+
+
+class Rooms(MinigridBase):
+    """Grid-world with multple rooms and explicit model."""
 
     def __init__(self, failure=0.0, **kwargs):
         """Initialize.
@@ -228,7 +264,10 @@ def test(env: gym.Env, interactive: bool = False):
         print("       Action:", action)
         print("  Observation:", observation)
         print("       Reward:", reward)
-        print("         Done:", "terminated" if terminated else "truncated" if truncated else "False")
+        print(
+            "         Done:",
+            "terminated" if terminated else "truncated" if truncated else "False",
+        )
         print("         Info:", info)
         time.sleep(0.1)
 
@@ -267,7 +306,12 @@ def test(env: gym.Env, interactive: bool = False):
         env.close()
 
 
-if __name__ == '__main__':
-
-    env = Room(failure=0.0, size=5, agent_start_dir=0, agent_start_pos=(1,1), render_mode='human')
+if __name__ == "__main__":
+    env = Room(
+        failure=0.0,
+        size=5,
+        agent_start_dir=0,
+        agent_start_pos=(1, 1),
+        render_mode="human",
+    )
     test(env, interactive=False)

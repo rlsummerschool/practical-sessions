@@ -19,7 +19,8 @@ class DecodeObservation(gym.ObservationWrapper):
         assert isinstance(self.unwrapped, MiniGridEnv)
         self.minigrid = self.unwrapped
         self.observation_space = gym.spaces.MultiDiscrete(
-            [self.minigrid.grid.height, self.minigrid.grid.width, 4], np.int_)
+            [self.minigrid.grid.height, self.minigrid.grid.width, 4], np.int_
+        )
 
     def observation(self, observation: dict) -> np.ndarray:
         """Transform observation."""

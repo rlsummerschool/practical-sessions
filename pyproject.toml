@@ -16,6 +16,7 @@ rope = "^1.8.0"
 isort = "^5.12.0"
 ipython = "^8.13.2"
 notebook = "^6.5.4"
+black = "^23.3.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
