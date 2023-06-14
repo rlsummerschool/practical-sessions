@@ -226,9 +226,9 @@ class Room(MinigridBase):
         """Initialize.
 
         failure: failure probability of the actions (another action is executed instead).
-        size: room side length
         agent_start_pos: tuple with coordinates
         agent_start_dir: north or..
+        size: room side length
         """
         minigrid = envs.EmptyEnv(**kwargs)
         super().__init__(minigrid=minigrid, seed=91273192, failure=failure)
@@ -237,16 +237,25 @@ class Room(MinigridBase):
 class Rooms(MinigridBase):
     """Grid-world with multple rooms and explicit model."""
 
-    def __init__(self, failure=0.0, **kwargs):
+    def __init__(self, rooms: int, size: int, failure=0.0, **kwargs):
         """Initialize.
 
+        rooms: how many rooms
+        size: maximum room size
         failure: failure probability of the actions (another action is executed instead).
-        size: room side length
-        agent_start_pos: tuple with coordinates
-        agent_start_dir: north or..
         """
-        minigrid = envs.EmptyEnv(**kwargs)
-        super().__init__(minigrid=minigrid, seed=91273192, failure=failure)
+        # Initialize
+        minigrid = envs.MultiRoomEnv(
+            minNumRooms=rooms, maxNumRooms=rooms, maxRoomSize=size, screen_size=1500, **kwargs
+        )
+        super().__init__(minigrid=minigrid, seed=91273187, failure=failure)
+
+        # Remove doors and keys
+        minigrid.grid.grid = [
+            obj if obj is None or obj.type in ("wall", "goal") else None
+            for obj in minigrid.grid.grid
+        ]
+        self._grid = self.minigrid.grid.encode()
 
 
 def test(env: gym.Env, interactive: bool = False):
@@ -307,11 +316,10 @@ def test(env: gym.Env, interactive: bool = False):
 
 
 if __name__ == "__main__":
-    env = Room(
-        failure=0.0,
-        size=5,
-        agent_start_dir=0,
-        agent_start_pos=(1, 1),
+    env = Rooms(
+        failure=0.1,
+        rooms=3,
+        size=6,
         render_mode="human",
     )
     test(env, interactive=False)
