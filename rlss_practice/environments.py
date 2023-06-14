@@ -1,16 +1,16 @@
 """Environment configurations, maps and transition functions"""
 
 import itertools
-import random
 import time
 from collections import defaultdict
-from typing import SupportsFloat, cast
+from typing import SupportsFloat
 
 import gymnasium as gym
 import numpy as np
 from minigrid import envs
 from minigrid.core.constants import DIR_TO_VEC
-from minigrid.minigrid_env import MiniGridEnv
+
+from rlss_practice.wrappers import BinaryReward, DecodeObservation, FailProbability
 
 
 class Room(gym.Wrapper):
@@ -72,6 +72,34 @@ class Room(gym.Wrapper):
         self.reset()                             # This creates a fixed grid and goal
         self._grid = self.minigrid.grid.encode() # Just to check that the grid never changes
         self._compute_model()
+        print(self)
+
+    def __str__(self):
+        """Simplified to string."""
+        OBJECT_TO_STR = {
+            "wall": "W",
+            "goal": "G",
+        }
+        AGENT_DIR_TO_STR = {0: ">", 1: "V", 2: "<", 3: "^"}
+
+        output = "Room\n"
+
+        for j in range(self.grid.height):
+            for i in range(self.grid.width):
+                if i == self.agent_pos[0] and j == self.agent_pos[1]:
+                    output += AGENT_DIR_TO_STR[self.agent_dir]
+                    continue
+
+                tile = self.grid.get(i, j)
+                if tile is None:
+                    output += " "
+                    continue
+                output += OBJECT_TO_STR[tile.type]
+
+            if j < self.grid.height - 1:
+                output += "\n"
+
+        return output
 
     def _is_valid_position(self, i: int, j: int) -> bool:
         """Testing whether a coordinate is a valid location."""
@@ -162,68 +190,6 @@ class Room(gym.Wrapper):
                             print(f"    next state {state2}: {self.T[state][action][state2]}")
 
 
-class DecodeObservation(gym.ObservationWrapper):
-    """Decoded observation for minigrid.
-
-    The observation is composed of agent 2D position and orientation.
-    """
-
-    def __init__(self, env):
-        super().__init__(env)
-        assert isinstance(self.unwrapped, MiniGridEnv)
-        self.minigrid = self.unwrapped
-        self.observation_space = gym.spaces.MultiDiscrete(
-            [self.minigrid.grid.height, self.minigrid.grid.width, 4], np.int_)
-
-    def observation(self, observation: dict) -> np.ndarray:
-        """Transform observation."""
-        obs = (*self.minigrid.agent_pos, self.minigrid.agent_dir)
-        return np.array(obs, dtype=np.int32)
-
-
-class BinaryReward(gym.RewardWrapper):
-    """1 if agent is at minigrid goal, 0 otherwise."""
-
-    def __init__(self, env):
-        super().__init__(env)
-        assert isinstance(self.unwrapped, MiniGridEnv)
-        self.minigrid = self.unwrapped
-        self._was_at_goal = False
-
-    def reset(self, **kwargs):
-        """Reset."""
-        self._was_at_goal = False
-        return super().reset(**kwargs)
-
-    def reward(self, reward: SupportsFloat) -> float:
-        """Compute reward."""
-        current_cell = self.minigrid.grid.get(*self.minigrid.agent_pos)
-        if current_cell is not None:
-            at_goal = current_cell.type == "goal"
-        else:
-            at_goal = False
-        rew = 1.0 if at_goal and not self._was_at_goal else 0.0
-        self._was_at_goal = at_goal
-        return rew
-
-
-class FailProbability(gym.Wrapper):
-    """Causes input actions to fail with some probability: a different action is executed."""
-
-    def __init__(self, env: gym.Env, failure: float, seed: int, **kwargs):
-        """Initialize."""
-        super().__init__(env, **kwargs)
-        self.failure = failure
-        assert 0 <= self.failure <= 1
-        self._n = int(cast(gym.spaces.Discrete, env.action_space).n)
-        self._rng = random.Random(seed)
-
-    def step(self, action):
-        """Env step."""
-        # Random?
-        if self._rng.random() < self.failure:
-            action = self._rng.randint(0, self._n - 1)
-        return self.env.step(action)
 
 
 def test(env: gym.Env, interactive: bool = False):

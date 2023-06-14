@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "rlss-practice"
+name = "rlss_practice"
 version = "0.1.0"
 description = ""
 authors = ["RLSS 2023"]
