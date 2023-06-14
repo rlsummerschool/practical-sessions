@@ -60,19 +60,22 @@ class Room(gym.Wrapper):
         env = DecodeObservation(env=env)
         env = BinaryReward(env=env)
 
-        # Sizes
-        assert isinstance(env.observation_space, gym.spaces.MultiDiscrete)
-        assert isinstance(env.action_space, gym.spaces.Discrete)
-        obs_space = env.observation_space.nvec
-        self.states = list(itertools.product(*(range(obs_space[i]) for i in range(len(obs_space)))))
-        self.actions = list(range(env.action_space.n))
-
         # Store and compute functions
         super().__init__(env=env)
         self.reset()                             # This creates a fixed grid and goal
         self._grid = self.minigrid.grid.encode() # Just to check that the grid never changes
+
+        # Sizes
+        assert isinstance(env.observation_space, gym.spaces.MultiDiscrete)
+        assert isinstance(env.action_space, gym.spaces.Discrete)
+        obs_space = env.observation_space.nvec
+        self.actions = list(range(env.action_space.n))
+        self.states = list(itertools.product(*(range(obs_space[i]) for i in range(len(obs_space)))))
+        self.states = [(x, y, o) for (x, y, o) in self.states if self._is_valid_position(x, y)]
+
+        # Explicit transition and rewards functions
         self._compute_model()
-        print(self)
+        import pdb; pdb.set_trace()
 
     def __str__(self):
         """Simplified to string."""
@@ -82,7 +85,7 @@ class Room(gym.Wrapper):
         }
         AGENT_DIR_TO_STR = {0: ">", 1: "V", 2: "<", 3: "^"}
 
-        output = "Room\n"
+        output = " Room\n"
 
         for j in range(self.grid.height):
             for i in range(self.grid.width):
@@ -116,8 +119,7 @@ class Room(gym.Wrapper):
         x, y, direction = state
 
         # Default transition to the sink failure state
-        if not self._is_valid_position(x, y):
-            return (0, 0, 0)
+        assert self._is_valid_position(x, y)
 
         # Transition left
         if action == self.minigrid.actions.left:
@@ -141,7 +143,6 @@ class Room(gym.Wrapper):
         # Error
         else:
             assert False, "Invalid action"
-
 
     def _compute_model(self):
         """Compute explicit transition and reward functions for this environment."""
