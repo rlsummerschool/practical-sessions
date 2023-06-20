@@ -58,7 +58,7 @@ def display_board(image, board=None, boards=None, marker1='x', marker2='o', mark
         ax.scatter(x, y, marker=marker2, s=marker_size, c=color2)
 
 
-def plot_regret(regrets, logscale=False, lb=None,q=10):
+def plot_result(regrets, logscale=False, lb=None,q=10):
     """
     regrets must be a dict {'agent_id':regret_table}
     """
@@ -90,4 +90,5 @@ def plot_regret(regrets, logscale=False, lb=None,q=10):
     plt.xlabel('time steps')
     plt.ylabel('Cumulative Regret')
     plt.legend()
-    reg_plot.show()
+    #reg_plot.show()
+    return reg_plot #notebook version

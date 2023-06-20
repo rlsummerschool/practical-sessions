@@ -584,3 +584,25 @@ class Nim(Environment):
                 y.append(col)
         position = x, y
         return display_position(image, position, positions, marker, marker_size, color, interval)
+
+class MAB_env(Environment):
+    
+    def __init__(self, means, noise=1.):
+        """
+        theta: d-dimensional vector (bounded) representing the hidden parameter
+        K: number of actions per round (random action vectors generated each time)
+        """
+        self.theta = means
+        self.noise = noise
+        self.K = np.size(means)
+
+            
+        
+    def get_reward(self, action):
+    
+        """ sample reward given action 
+        """
+        return np.random.normal(self.theta[action], self.noise)
+            
+    def get_means(self):
+        return  self.theta
