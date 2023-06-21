@@ -8,6 +8,7 @@ authors = ["RLSS 2023"]
 python = ">=3.9,<3.11"
 matplotlib = "^3.7.1"
 minigrid = "^2.2.1"
+moviepy = "^1.0.3"
 
 [tool.poetry.dev-dependencies]
 flake8 = "^6.0.0"
