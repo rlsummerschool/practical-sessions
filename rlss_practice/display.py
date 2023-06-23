@@ -58,7 +58,7 @@ def display_board(image, board=None, boards=None, marker1='x', marker2='o', mark
         ax.scatter(x, y, marker=marker2, s=marker_size, c=color2)
 
 
-def plot_result(regrets, logscale=False, lb=None,q=10, mode = 'Regret'):
+def plot_result(regrets, logscale=False, lb=None,q=10, mode = 'regret', cumulative=True):
     """
     regrets must be a dict {'agent_id':regret_table}
     """
@@ -69,7 +69,10 @@ def plot_result(regrets, logscale=False, lb=None,q=10, mode = 'Regret'):
     for i, agent_id in enumerate(regrets.keys()):
         data = regrets[agent_id]
         N, T = data.shape
-        cumdata = np.cumsum(data, axis=1) # cumulative regret
+        if cumulative:
+            cumdata = np.cumsum(data, axis=1) # cumulative regret
+        else:
+            cumdata = data
         
         mean_reg = np.mean(cumdata, axis=0)
         q_reg = np.percentile(cumdata, q, axis=0)
@@ -88,7 +91,8 @@ def plot_result(regrets, logscale=False, lb=None,q=10, mode = 'Regret'):
         plt.plot(np.arange(T), lb, color='black', marker='*', markevery=int(T/10))
         
     plt.xlabel('time steps')
-    plt.ylabel('Cumulative '+ mode)
+    header = "Cumulative " if cumulative else ""
+    plt.ylabel(header + mode.capitalize())
     plt.legend()
     #reg_plot.show()
     return reg_plot #notebook version
