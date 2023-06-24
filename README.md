@@ -25,7 +25,7 @@ There are two ways to create the virtual environment and install the package.
 The first is with [Poetry](https://python-poetry.org/). Poetry is a tool for developing Python packages. If this is installed in your system, running `poetry install` from the current directory will create a separate virtual environment and install all dependencies. In this case, you may proceed to section *Running*.
 
 The other alternative is to manually create a virtual environment and install the dependencies within.
-Create and activate a virtual environment, then install the package with the command:
+Create and activate a virtual environment, then install the package with the commands:
 
     python -m venv <path>
     source <path>/bin/activate
@@ -36,4 +36,4 @@ Create and activate a virtual environment, then install the package with the com
 
 To execute parts of this package, it is necessary to enter the virtual environment for each new shell.
 Depending on the installation method, the commands are `poetry shell` or `source <path>/bin/activate`.
-Now, we can now lauch the notebooks server with `python -m notebook` from the current directory.
+Now, we can now lauch the notebooks server with `python -m notebook notebooks` from the current directory.
