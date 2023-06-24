@@ -62,16 +62,23 @@ class MinigridBase(gym.Wrapper):
         env: gym.Env = FailProbability(self.minigrid, failure=failure, seed=seed)
         env = DecodeObservation(env=env)
         env = BinaryReward(env=env)
-        env = TimeLimit(env=env, max_episode_steps=40)
+        env = TimeLimit(env=env, max_episode_steps=50)
         super().__init__(env=env)
 
         # The grid must be generated once
         env.reset(seed=self.seed)  # this creates the grid
+        self._initial_pos = minigrid.agent_pos
+        self._initial_dir = minigrid.agent_dir
 
-        def _reset(*, seed=None, options=None):
+        # Do not generate it afterwards, only restore position
+        def _reset(self2: MiniGridEnv, *, seed=None, options=None):
+            self2.agent_pos = self._initial_pos
+            self2.agent_dir = self._initial_dir
+            self2.carrying = None
+            self2.step_count = 0
             return minigrid.gen_obs(), {}
 
-        minigrid.reset = _reset
+        minigrid.reset = _reset.__get__(minigrid)
         self._grid = (
             self.minigrid.grid.encode()
         )  # Just to check that the grid never changes
@@ -90,6 +97,12 @@ class MinigridBase(gym.Wrapper):
 
         # Explicit transition and rewards functions
         self._compute_model()
+
+    def step(self, action: int):
+        if action < 0 or action > 2:
+            raise RuntimeError(f"Illegal action {action}. The action space is {self.action_space}")
+
+        return super().step(action)
 
     def __str__(self):
         """Simplified to string."""
@@ -198,7 +211,7 @@ class MinigridBase(gym.Wrapper):
 
     def reset(self, **kwargs):
         """Environment reset."""
-        ret = super().reset(seed=self.seed, **kwargs)
+        ret = super().reset(**kwargs)
         assert (
             self.minigrid.grid.encode() == self._grid
         ).all(), "The grid changed: this shouldn't happen"
@@ -230,7 +243,7 @@ class Room(MinigridBase):
         agent_start_dir: north or..
         size: room side length
         """
-        minigrid = envs.EmptyEnv(**kwargs)
+        minigrid = envs.EmptyEnv(render_mode="rgb_array", **kwargs)
         super().__init__(minigrid=minigrid, seed=91273192, failure=failure)
 
 
@@ -246,7 +259,7 @@ class Rooms(MinigridBase):
         """
         # Initialize
         minigrid = envs.MultiRoomEnv(
-            minNumRooms=rooms, maxNumRooms=rooms, maxRoomSize=size, screen_size=1500, **kwargs
+            render_mode="rgb_array", minNumRooms=rooms, maxNumRooms=rooms, maxRoomSize=size, screen_size=1500, **kwargs
         )
         super().__init__(minigrid=minigrid, seed=91273187, failure=failure)
 
@@ -305,7 +318,6 @@ def test(env: gym.Env, interactive: bool = False):
 
             # Reset
             if terminated or truncated:
-                print("Reset")
                 observation, info = env.reset()
                 terminated = False
                 truncated = False
@@ -316,10 +328,10 @@ def test(env: gym.Env, interactive: bool = False):
 
 
 if __name__ == "__main__":
-    env = Rooms(
-        failure=0.1,
-        rooms=3,
-        size=6,
-        render_mode="human",
+    env = Room(
+        failure=0.0,
+        agent_start_pos=(1, 1),
+        agent_start_dir=0,
+        size=5,
     )
-    test(env, interactive=False)
+    test(env, interactive=True)
