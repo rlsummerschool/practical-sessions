@@ -12,13 +12,14 @@ from minigrid import envs
 from minigrid.core.constants import DIR_TO_VEC
 from minigrid.minigrid_env import MiniGridEnv
 
-from rlss_practice.wrappers import BinaryReward, DecodeObservation, FailProbability
+from rlss_practice.wrappers import GoalMDP, DecodeObservation, FailProbability
 
 
 class MinigridBase(gym.Wrapper):
     """Base class for minigrid environments with explicit transition and reward functions.
 
-    The agent is rewarded upon reaching the goal location.
+    The agent is rewarded with a 1 for every action executed at the goal state,
+    after which a sink failure state is reached.
 
     Action space:
 
@@ -61,7 +62,7 @@ class MinigridBase(gym.Wrapper):
         # Transform and store
         env: gym.Env = FailProbability(self.minigrid, failure=failure, seed=seed)
         env = DecodeObservation(env=env)
-        env = BinaryReward(env=env)
+        env = GoalMDP(env=env)
         env = TimeLimit(env=env, max_episode_steps=50)
         super().__init__(env=env)
 
@@ -94,6 +95,8 @@ class MinigridBase(gym.Wrapper):
         self.states = [
             (x, y, o) for (x, y, o) in self.states if self._is_valid_position(x, y)
         ]
+        self.sink_state = (0, 0, 0)
+        self.states.append(self.sink_state)
 
         # Explicit transition and rewards functions
         self._compute_model()
@@ -183,26 +186,28 @@ class MinigridBase(gym.Wrapper):
         R: dict = defaultdict(lambda: defaultdict())
         for state in self.states:
             for action in self.actions:
-                # Reward
                 pos = self.minigrid.grid.get(state[0], state[1])
-                if pos is not None and pos.type == "goal":
-                    R[state][action] = 1.0
-                else:
-                    R[state][action] = 0.0
+                at_goal = pos is not None and pos.type == "goal"
+
+                # Reward
+                R[state][action] = 1.0 if at_goal else 0.0
 
                 # Transition
-                success_state = self._state_step(state, action)
-                failure_states = [
-                    self._state_step(state, a) for a in self.actions if a != action
-                ]
-                T[state][action] = {
-                    s: 1 - self.failure
-                    if s == success_state
-                    else self.failure / len(failure_states)
-                    if s in failure_states
-                    else 0.0
-                    for s in self.states
-                }
+                if at_goal or state == self.sink_state:
+                    T[state][action] = {s: 1.0 if s == self.sink_state else 0.0 for s in self.states}
+                else:
+                    success_state = self._state_step(state, action)
+                    failure_states = [
+                        self._state_step(state, a) for a in self.actions if a != action
+                    ]
+                    T[state][action] = {
+                        s: 1 - self.failure
+                        if s == success_state
+                        else self.failure / len(failure_states)
+                        if s in failure_states
+                        else 0.0
+                        for s in self.states
+                    }
 
             T[state] = dict(T[state])
             R[state] = dict(R[state])
@@ -217,7 +222,7 @@ class MinigridBase(gym.Wrapper):
         ).all(), "The grid changed: this shouldn't happen"
         return ret
 
-    def _pretty_print_T(self):
+    def pretty_print_T(self):
         """Prints the positive components of the transition function."""
         print("Transition function -- self.T")
         for state in self.states:
