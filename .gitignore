@@ -1,6 +1,9 @@
 # Notebooks
 .ipynb_checkpoints/
 
+# Video outputs
+/notebooks/videos-dir/
+
 # Development
 .python-version
 .venv/

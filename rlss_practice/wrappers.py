@@ -3,7 +3,7 @@
 import random
 from base64 import b64encode
 from pathlib import Path
-from typing import Optional, SupportsFloat, Union, cast
+from typing import Optional, Union, cast
 
 import gymnasium as gym
 import os
@@ -33,8 +33,13 @@ class DecodeObservation(gym.ObservationWrapper):
         return np.array(obs, dtype=np.int32)
 
 
-class BinaryReward(gym.Wrapper):
-    """1 if agent is at minigrid goal, 0 otherwise; also, do not terminate trajecotories."""
+class GoalMDP(gym.Wrapper):
+    """Some changes relative to the Goal MDP.
+
+    This assigns a reward of 1 if the agent is at minigrid goal, 0 otherwise.
+    The episode terminates one step after the goal, because no other reward can be collected from there.
+    The last observation is assigned to (0, 0, 0).
+    """
 
     def __init__(self, env):
         super().__init__(env)
@@ -57,9 +62,14 @@ class BinaryReward(gym.Wrapper):
             at_goal = current_cell.type == "goal"
         else:
             at_goal = False
-        reward = 1.0 if at_goal else 0.0
 
-        return observation, reward, False, truncated, info
+        # Chages
+        reward = 1.0 if at_goal else 0.0
+        terminated = at_goal
+        if at_goal:
+            observation = np.zeros(3, dtype=np.int32)
+
+        return observation, reward, terminated, truncated, info
 
 
 class FailProbability(gym.Wrapper):
@@ -77,7 +87,8 @@ class FailProbability(gym.Wrapper):
         """Env step."""
         # Random?
         if self._rng.random() < self.failure:
-            action = self._rng.randint(0, self._n - 1)
+            other_actions = [a for a in range(self._n) if a != action]
+            action = self._rng.choice(other_actions)
         return self.env.step(action)
 
 
@@ -90,13 +101,13 @@ class Renderer(gym.Wrapper):
         env: environments to render.
         path: this can be omitted only in colab, otherwise a path for the recorded video is needed.
         """
-        self._video_dir = Path(path) if path else Path("/content/video-out")
+        self._video_dir = Path(path) if path else Path("videos-dir")
         self._video_path_format = self._video_dir / "rl-video-step-{}.mp4"
         super().__init__(
             RecordVideo(
                 env=env,
                 video_folder=str(self._video_dir),
-                step_trigger=lambda step: True,
+                episode_trigger=lambda episode: episode < 5,
                 disable_logger=True,
             )
         )
