@@ -222,11 +222,8 @@ class LinUCB(Agent):
         for i in range(K):
             a = arms[i,:]
             covxa = np.inner(self.invcov, a.T)
-            #add your code
             self.UCBs[i] = np.dot(
                 self.hat_theta,a) +  self.alpha * self.beta * np.sqrt(np.dot(a, covxa))
-            #end your code
-
         #END SOLUTION
         chosen_arm_index = np.argmax(self.UCBs)
 
