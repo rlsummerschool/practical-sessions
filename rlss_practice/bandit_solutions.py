@@ -13,6 +13,7 @@ MEANS = np.array([0.1, 0.5, 0.9])
 EPSILON = 0.1
 _theta = np.array([0.45, 0.5, 0.5])
 THETA = _theta / np.linalg.norm(_theta)
+ALPHA = 2.
 
 class EpsilonGreedy(Agent):
   def __init__(self, K, eps=EPSILON):
