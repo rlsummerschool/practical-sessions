@@ -11,8 +11,6 @@ from copy import deepcopy
 from rlss_practice.agent import Agent
 from rlss_practice.display import display_position, display_board
 
-MEANS = np.array([0.1, 0.5, 0.9])
-
 class Environment:
     """Generic environment.
     Reward only depends on the next state.
